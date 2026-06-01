@@ -31,6 +31,7 @@ const defaultTTL = 30 * time.Minute
 
 // NewClientCache creates a new ClientCache and starts a background
 // goroutine that evicts entries not accessed within the TTL.
+// 注意,这里返回的是一个指针,指向我们刚生成的ClientCacge
 func NewClientCache() *ClientCache {
 	// 这里相当直接实例化一个cache,并且定期进行清楚
 	c := &ClientCache{}
@@ -68,10 +69,13 @@ func (c *ClientCache) evictLoop(ttl time.Duration) {
 	ticker := time.NewTicker(ttl / 2)
 	// defer关键字代表在该方法执行结束前执行
 	defer ticker.Stop()
-
+	// 死循环,这里会按照计时器的方式定时触发
 	for range ticker.C {
+		// 当前时间 - ttl = 过期开始时间
 		cutoff := time.Now().Add(-ttl).Unix()
+		// clients本质上是一个Map,key是一个由用户信息和api key组成的一个指纹信息(唯一),value则是any类型(用于存储连接信息)
 		c.clients.Range(func(key, value any) bool {
+			// 调用 Range方法 循环遍历我们的clients(事实上它和range关键字没有关系!只是重名而已)
 			item := value.(*cacheItem)
 			if item.accessed.Load() < cutoff {
 				c.clients.Delete(key)

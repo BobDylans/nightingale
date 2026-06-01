@@ -223,6 +223,8 @@ type BuiltinToolFunc func(ctx context.Context, deps *ToolDeps, args map[string]i
 
 // ExternalToolHandler 外部工具执行函数（用于 processor/skill 类型工具）
 // 由适配层注入，核心 Agent 不关心具体实现
+// 对于外部方法的统一的声明,以后无论我们写什么方法(网络检索,计算,天气等),只要符合该函数定义,就视为该方法类型
+// 实际上是单一方法接口,软件工程中成为函数式接口
 type ExternalToolHandler func(ctx context.Context, tool *AgentTool, args map[string]interface{}, req *AgentRequest) (string, error)
 
 // ==================== ReAct 类型 ====================

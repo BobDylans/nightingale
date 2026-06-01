@@ -13,9 +13,11 @@ import (
 )
 
 // 包级 LLM Client 缓存（供 adapter 等无法从外部注入缓存的路径使用）
+// 简单来见,我们将每一个用户的没有key对应的LLM识别为一个client
 var defaultClientCache = llm.NewClientCache()
 
 // AgentOption 用于在创建 Agent 时注入可选依赖
+// 创建了一个函数属性,里面需要的变量是*Agent,且没有返回值.任何满足这个声明的方法都符合该类型
 type AgentOption func(*Agent)
 
 // WithLLMClient 注入已有的 LLM 客户端（跳过内部创建，复用连接池）
@@ -41,11 +43,16 @@ func WithToolDeps(d *ToolDeps) AgentOption {
 }
 
 // NewAgent 创建 Agent 实例
+// 创建新的agent的时,包含参数(AgentConfig以及一系列用于绑定的方法,类似setter的定义)
 func NewAgent(cfg *AgentConfig, opts ...AgentOption) *Agent {
+	// 任何一个go语言中的结构体都可以这么写,不需要构造方法,直接为里面的字面量赋值
+	// 但是实际的工程任务中,一般还是推荐单独写一个方法来进行初始化,也可像这样部分赋值
 	a := &Agent{cfg: cfg}
+	// 调用我们的option
 	for _, opt := range opts {
 		opt(a)
 	}
+	// 设置默认值
 	a.applyDefaults()
 	return a
 }
