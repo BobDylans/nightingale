@@ -65,6 +65,7 @@ func (a *Agent) callLLMWithStreamOutput(ctx context.Context, messages []ChatMess
 		}
 		if chunk.Content != "" {
 			fullContent.WriteString(chunk.Content)
+			// 这个含义是在streamChan中放入数据的意思
 			streamChan <- &StreamChunk{
 				Type:      StreamTypeText,
 				Delta:     chunk.Content,

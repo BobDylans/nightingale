@@ -200,6 +200,7 @@ func (c *Claude) streamResponse(ctx context.Context, resp *http.Response, ch cha
 	defer close(ch)
 	defer resp.Body.Close()
 
+	// 从这个还在开着的socket中进行读取
 	reader := bufio.NewReader(resp.Body)
 	var currentToolCall *ToolCall
 

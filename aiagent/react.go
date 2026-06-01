@@ -99,6 +99,7 @@ func (a *Agent) runReActLoop(ctx context.Context, req *AgentRequest, messages []
 
 		observationMsg := fmt.Sprintf("Observation: %s", observation)
 
+		// 在这里想messages中添加数据,将tools调用的结果返回
 		messages = append(messages, ChatMessage{Role: "assistant", Content: response})
 		messages = append(messages, ChatMessage{Role: "user", Content: observationMsg})
 	}
