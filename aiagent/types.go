@@ -161,10 +161,12 @@ type StreamChunk struct {
 // ==================== 工具类型 ====================
 
 // AgentTool 工具定义
+// 本质上这个type是一个大杂烩,根据类型的不同所包含的参数也不同
 type AgentTool struct {
 	Name        string `json:"name"`
 	Description string `json:"description"`
-	Type        string `json:"type"`
+	// 实际上就是通过这个字段来对工具的类型进行区分
+	Type string `json:"type"`
 
 	// HTTP 工具配置
 	URL           string            `json:"url,omitempty"`

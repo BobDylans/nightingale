@@ -13,7 +13,7 @@ import (
 )
 
 // 包级 LLM Client 缓存（供 adapter 等无法从外部注入缓存的路径使用）
-// 简单来见,我们将每一个用户的没有key对应的LLM识别为一个client
+// 简单来见,我们将每一个用户的毎一个key对应的LLM识别为一个client
 var defaultClientCache = llm.NewClientCache()
 
 // AgentOption 用于在创建 Agent 时注入可选依赖
@@ -58,6 +58,8 @@ func NewAgent(cfg *AgentConfig, opts ...AgentOption) *Agent {
 }
 
 // SetExternalToolHandler 设置外部工具处理器（用于 processor/skill 类型工具）
+// 实际上ExternalToolHandler类似一个函数式接口(即只包含一个方法的接口)
+// 我们可以注入多个外部的tools
 func (a *Agent) SetExternalToolHandler(h ExternalToolHandler) {
 	a.externalToolHandler = h
 }
@@ -75,6 +77,7 @@ func (a *Agent) SetSkillRegistry(registry *SkillRegistry) {
 
 // InitSkills 初始化技能
 func (a *Agent) InitSkills(skillsPath string) {
+	// 这里会有一个检查,看看是否启用了skills的配置或者设置了skills的路径
 	if a.cfg.Skills == nil || skillsPath == "" {
 		return
 	}
@@ -95,6 +98,7 @@ func (a *Agent) InitSkills(skillsPath string) {
 	// 每条消息都 destructive re-extract，避免多 chat 并发时 read_file /
 	// SkillRegistry 在 Step 1 删目录和 Step 2 重写之间读到空目录的竞态。
 	a.skillRegistry = NewSkillRegistry(skillsPath)
+	// AutoSelect如果为真说明允许LLM自行选择skills
 	if a.cfg.Skills.AutoSelect {
 		a.skillSelector = NewLLMSkillSelector(func(ctx context.Context, messages []ChatMessage) (string, error) {
 			return a.callLLM(ctx, messages, nil)
@@ -116,7 +120,7 @@ func (a *Agent) Run(ctx context.Context, req *AgentRequest) (*AgentResponse, err
 	}
 	timeoutCtx, cancel := context.WithTimeout(parentCtx, time.Duration(a.cfg.Timeout)*time.Millisecond)
 
-	// 加载 Skills
+	// 加载 SkillsselectAndLoadSkills
 	tSkillStart := time.Now()
 	var activeSkills []*SkillContent
 	if a.cfg.Skills != nil && a.skillRegistry != nil {
@@ -245,16 +249,19 @@ func (a *Agent) applyDefaults() {
 }
 
 // selectAndLoadSkills 选择并加载技能
+// 这个方法的返回值是已经加载好了的skill的正文部分
 func (a *Agent) selectAndLoadSkills(ctx context.Context, req *AgentRequest) []*SkillContent {
 	if a.cfg.Skills == nil || a.skillRegistry == nil {
 		return nil
 	}
 
+	// 这里将skills的元数据都存储进来
 	var selectedSkills []*SkillMetadata
-
+	// 第一步:如果配置中写了skills的配置,直接使用即可
 	if len(a.cfg.Skills.SkillNames) > 0 {
 		for _, name := range a.cfg.Skills.SkillNames {
 			if skill := a.skillRegistry.GetByName(name); skill != nil {
+				// append是将后面的值加入到slice中
 				selectedSkills = append(selectedSkills, skill)
 			} else {
 				logger.Warningf("Skill '%s' not found", name)
@@ -284,7 +291,7 @@ func (a *Agent) selectAndLoadSkills(ctx context.Context, req *AgentRequest) []*S
 			}
 		}
 	}
-
+	// 之前的三步实际上只是选择了skills的元数据,确认后才会取出skills的正文部分
 	var activeSkills []*SkillContent
 	for _, skill := range selectedSkills {
 		content, err := a.skillRegistry.LoadContent(skill)

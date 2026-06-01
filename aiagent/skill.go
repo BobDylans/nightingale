@@ -87,14 +87,19 @@ type SkillResources struct {
 
 // SkillRegistry 技能注册表
 type SkillRegistry struct {
-	skillsPath   string                           // 技能目录路径
-	skills       map[string]*SkillMetadata        // name -> metadata
-	contentCache map[string]*SkillContent         // name -> content (LRU cache)
-	toolsCache   map[string]map[string]*SkillTool // skillName -> toolName -> tool
-	mu           sync.RWMutex
+	skillsPath string // 技能目录路径
+	// 实际上使用披露式展示,首先是skills的元数据
+	// 包含一些基本的描述
+	skills map[string]*SkillMetadata // name -> metadata
+	// 这里是skills中功能和使用方法的具体描述``
+	contentCache map[string]*SkillContent // name -> content (LRU cache)
+	// 这里对应skills中具体包含有哪些skills
+	toolsCache map[string]map[string]*SkillTool // skillName -> toolName -> tool
+	mu         sync.RWMutex
 }
 
 // NewSkillRegistry 创建技能注册表
+// 每次创建新的技能注册表就会创建一个技能的三级缓存
 func NewSkillRegistry(skillsPath string) *SkillRegistry {
 	registry := &SkillRegistry{
 		skillsPath:   skillsPath,
@@ -130,9 +135,11 @@ func (r *SkillRegistry) loadAllMetadata() error {
 	}
 
 	r.mu.Lock()
+	// 加个defer,首先加上一个读锁,在该函数结束前默认释放
 	defer r.mu.Unlock()
 
 	for _, entry := range entries {
+		// 这里直对文件夹进行操作(想想我们的skills存储的方式)
 		if !entry.IsDir() {
 			continue
 		}
@@ -157,6 +164,7 @@ func (r *SkillRegistry) loadAllMetadata() error {
 		skillFile := filepath.Join(skillPath, SkillFileName)
 
 		// 检查 SKILL.md 是否存在
+		// 看看这个文件夹是否含有对应的skills.md来确认正确性
 		if _, err := os.Stat(skillFile); os.IsNotExist(err) {
 			continue
 		}
@@ -168,6 +176,7 @@ func (r *SkillRegistry) loadAllMetadata() error {
 			continue
 		}
 
+		// 这里注意一点,我们是否名称skills只是根据name来的,这个是我们唯一的凭据
 		metadata.Path = skillPath
 		metadata.LoadedAt = time.Now()
 		r.skills[metadata.Name] = metadata
