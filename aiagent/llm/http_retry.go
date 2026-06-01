@@ -83,6 +83,12 @@ func doHTTPStreamWithRetry(
 	for attempt := 0; attempt <= maxRetries; attempt++ {
 		if attempt > 0 {
 			select {
+			// 这里的意思是select关键字都是在等待管道中出现数据
+			// 那一个先出现就先执行那一个
+			// 第一个是在等整个任务超时或者报错
+			// 第二个则是闹钟响起
+			// 闹钟是当前方法自己给自己设置的回避时间
+			// 而ctx则是整体给这个http请求预留的时间
 			case <-ctx.Done():
 				return nil, ctx.Err()
 			case <-time.After(retryWait):
@@ -114,6 +120,8 @@ func doHTTPStreamWithRetry(
 			}
 			return nil, lastErr
 		}
+		// 能走到这里说明正常建立连接,没有读rep body,直接返回即可
+		// 只要不关闭就一直保持着连接
 		return resp, nil
 	}
 	return nil, lastErr

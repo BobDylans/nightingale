@@ -45,6 +45,7 @@ func (a *Agent) callLLMWithStreamOutput(ctx context.Context, messages []ChatMess
 		return "", err
 	}
 
+	// 这里返回的参数是一个只读的chan
 	stream, err := a.llmClient.GenerateStream(ctx, buildLLMRequest(messages, stop))
 	if err != nil {
 		logger.Errorf("[Agent] GenerateStream failed provider=%s: %v", a.llmClient.Name(), err)

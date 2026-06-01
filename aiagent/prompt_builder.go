@@ -111,6 +111,7 @@ func (a *Agent) buildDirectSystemPrompt(rc *runCtx) string {
 
 // buildReActSystemPrompt 构建 ReAct 系统提示词
 func (a *Agent) buildReActSystemPrompt(rc *runCtx) string {
+	// 创建一个stringbuilder来构建提示词
 	var sb strings.Builder
 
 	// 基础提示词

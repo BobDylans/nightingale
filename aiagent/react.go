@@ -10,6 +10,7 @@ import (
 
 // runReActLoop 执行 ReAct 循环的核心逻辑（统一支持流式/非流式）
 func (a *Agent) runReActLoop(ctx context.Context, req *AgentRequest, messages []ChatMessage, config *ReActLoopConfig) *AgentResponse {
+	// 创建resp用于接收返回值
 	resp := &AgentResponse{
 		Steps: []ReActStep{},
 	}
@@ -17,11 +18,15 @@ func (a *Agent) runReActLoop(ctx context.Context, req *AgentRequest, messages []
 	streaming := config.StreamChan != nil
 
 	for iteration := 0; iteration < config.MaxIterations; iteration++ {
+		// 实际上,select和switch类似,但是select只能对应chan相关的操作
+		// 比如向chan中写数据或从chan中取出数据
 		select {
+		// 监听如果取消了,就直接返回
 		case <-ctx.Done():
 			resp.Error = config.TimeoutMessage
 			resp.Iterations = iteration
 			return resp
+		// 如果什么都没有出发就正常的向下走即可
 		default:
 		}
 
@@ -121,6 +126,7 @@ func (a *Agent) executeReAct(ctx context.Context, req *AgentRequest, rc *runCtx)
 	systemPrompt := a.buildReActSystemPrompt(rc)
 
 	// 组装消息：system → 历史对话 → 当前 user
+	// 创建一个提示词的slice
 	messages := []ChatMessage{
 		{Role: "system", Content: systemPrompt},
 	}

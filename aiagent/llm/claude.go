@@ -14,8 +14,8 @@ import (
 )
 
 const (
-	DefaultClaudeURL     = "https://api.anthropic.com/v1/messages"
-	ClaudeAPIVersion     = "2023-06-01"
+	DefaultClaudeURL       = "https://api.anthropic.com/v1/messages"
+	ClaudeAPIVersion       = "2023-06-01"
 	DefaultClaudeMaxTokens = 4096
 )
 
@@ -121,19 +121,19 @@ type claudeResponse struct {
 
 // Claude streaming event types
 type claudeStreamEvent struct {
-	Type         string               `json:"type"`
-	Index        int                  `json:"index,omitempty"`
-	ContentBlock *claudeContentBlock  `json:"content_block,omitempty"`
-	Delta        *claudeStreamDelta   `json:"delta,omitempty"`
-	Message      *claudeResponse      `json:"message,omitempty"`
-	Usage        *claudeStreamUsage   `json:"usage,omitempty"`
+	Type         string              `json:"type"`
+	Index        int                 `json:"index,omitempty"`
+	ContentBlock *claudeContentBlock `json:"content_block,omitempty"`
+	Delta        *claudeStreamDelta  `json:"delta,omitempty"`
+	Message      *claudeResponse     `json:"message,omitempty"`
+	Usage        *claudeStreamUsage  `json:"usage,omitempty"`
 }
 
 type claudeStreamDelta struct {
-	Type         string `json:"type"`
-	Text         string `json:"text,omitempty"`
-	PartialJSON  string `json:"partial_json,omitempty"`
-	StopReason   string `json:"stop_reason,omitempty"`
+	Type        string `json:"type"`
+	Text        string `json:"text,omitempty"`
+	PartialJSON string `json:"partial_json,omitempty"`
+	StopReason  string `json:"stop_reason,omitempty"`
 }
 
 type claudeStreamUsage struct {
@@ -165,6 +165,7 @@ func (c *Claude) GenerateStream(ctx context.Context, req *GenerateRequest) (<-ch
 	claudeReq := c.convertRequest(req)
 	claudeReq.Stream = true
 
+	// 调用方法直接将claudeReq转换成json格式
 	jsonData, err := json.Marshal(claudeReq)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal request: %w", err)
@@ -177,7 +178,8 @@ func (c *Claude) GenerateStream(ctx context.Context, req *GenerateRequest) (<-ch
 		logger.Debugf("[Claude] stream request body (with extra): %s", preview)
 	}
 
-	resp, err := doHTTPStreamWithRetry(ctx, c.client, "Claude",
+	resp, err := doHTTPStreamWithRetry(
+		ctx, c.client, "Claude",
 		func() (*http.Request, error) {
 			return http.NewRequestWithContext(ctx, "POST", c.config.BaseURL, bytes.NewBuffer(jsonData))
 		},
@@ -188,10 +190,12 @@ func (c *Claude) GenerateStream(ctx context.Context, req *GenerateRequest) (<-ch
 	}
 
 	ch := make(chan StreamChunk, 100)
+	// 前面获取到的req实际上是一个连接,我们将其作为参数传入然后开始持续的读取
 	go c.streamResponse(ctx, resp, ch)
 	return ch, nil
 }
 
+// 这里的入参包含ctx,req以及一个只写的chan
 func (c *Claude) streamResponse(ctx context.Context, resp *http.Response, ch chan<- StreamChunk) {
 	defer close(ch)
 	defer resp.Body.Close()
@@ -282,6 +286,7 @@ func (c *Claude) streamResponse(ctx context.Context, resp *http.Response, ch cha
 	}
 }
 
+// 经典将我们定义好的req重新生成为claude官方所需要的req类型
 func (c *Claude) convertRequest(req *GenerateRequest) *claudeRequest {
 	claudeReq := &claudeRequest{
 		Model:     c.config.Model,
@@ -376,7 +381,8 @@ func (c *Claude) doRequest(ctx context.Context, req *claudeRequest) ([]byte, err
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal request: %w", err)
 	}
-	return doHTTPWithRetry(ctx, c.client, "Claude",
+	return doHTTPWithRetry(
+		ctx, c.client, "Claude",
 		func() (*http.Request, error) {
 			return http.NewRequestWithContext(ctx, "POST", c.config.BaseURL, bytes.NewBuffer(jsonData))
 		},
