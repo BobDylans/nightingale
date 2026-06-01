@@ -10,6 +10,7 @@ import "time"
 // =============================================================================
 
 // Agent 运行期默认值（AgentConfig 字段缺省时使用）
+// 实际上都放到一个const下面是没有问题的,只是这样写比较容易区分每一个常量对应的关系
 const (
 	DefaultMaxIterations     = 25
 	DefaultTimeout           = 60000 // 60 秒（毫秒单位，和 llm.Config.Timeout 保持一致）

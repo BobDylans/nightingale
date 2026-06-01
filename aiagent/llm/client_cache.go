@@ -32,7 +32,9 @@ const defaultTTL = 30 * time.Minute
 // NewClientCache creates a new ClientCache and starts a background
 // goroutine that evicts entries not accessed within the TTL.
 func NewClientCache() *ClientCache {
+	// 这里相当直接实例化一个cache,并且定期进行清楚
 	c := &ClientCache{}
+	// 启动一个协程开始定时进行清理
 	go c.evictLoop(defaultTTL)
 	return c
 }
@@ -64,6 +66,7 @@ func (c *ClientCache) GetOrCreate(cfg *Config) (LLM, error) {
 // have not been accessed within the given TTL.
 func (c *ClientCache) evictLoop(ttl time.Duration) {
 	ticker := time.NewTicker(ttl / 2)
+	// defer关键字代表在该方法执行结束前执行
 	defer ticker.Stop()
 
 	for range ticker.C {
@@ -84,7 +87,8 @@ func (c *ClientCache) evictLoop(ttl time.Duration) {
 // All Config fields are included in the fingerprint.
 func (c *ClientCache) fingerprint(cfg *Config) string {
 	h := sha256.New()
-	fmt.Fprintf(h, "%s|%s|%s|%s|%v|%s|%d",
+	fmt.Fprintf(
+		h, "%s|%s|%s|%s|%v|%s|%d",
 		cfg.Provider,
 		cfg.BaseURL,
 		cfg.APIKey,

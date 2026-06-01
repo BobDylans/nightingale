@@ -42,8 +42,8 @@ const (
 	// 注：Agent 运行期默认值、HTTP 状态码上界等调优参数见 defaults.go。
 
 	// ReAct 特殊标记
-	ActionFinalAnswer = "Final Answer"
-	ActionReplan      = "Replan"
+	ActionFinalAnswer  = "Final Answer"
+	ActionReplan       = "Replan"
 	ActionStepComplete = "Step Complete"
 )
 
@@ -65,6 +65,7 @@ type Agent struct {
 	mcpServers       map[string]*mcp.ServerConfig
 
 	// 外部工具处理器（用于 processor/skill 类型工具，由适配层注入）
+	// 在go中会将函数声明作为一种类型放到struct中作为一个属性
 	externalToolHandler ExternalToolHandler
 
 	// 内置工具依赖（DBCtx、数据源获取器、过滤器等），由 WithToolDeps 注入
@@ -137,12 +138,12 @@ type AgentRequest struct {
 
 // AgentResponse Agent 执行结果
 type AgentResponse struct {
-	Content    string         `json:"content"`          // 最终结果文本
-	Steps      []ReActStep    `json:"steps"`            // 执行轨迹
-	Plan       *ExecutionPlan `json:"plan,omitempty"`   // 执行计划（plan_react 模式）
-	Iterations int            `json:"iterations"`       // 迭代次数
-	Success    bool           `json:"success"`          // 是否成功
-	Error      string         `json:"error,omitempty"`  // 错误信息
+	Content    string         `json:"content"`         // 最终结果文本
+	Steps      []ReActStep    `json:"steps"`           // 执行轨迹
+	Plan       *ExecutionPlan `json:"plan,omitempty"`  // 执行计划（plan_react 模式）
+	Iterations int            `json:"iterations"`      // 迭代次数
+	Success    bool           `json:"success"`         // 是否成功
+	Error      string         `json:"error,omitempty"` // 错误信息
 }
 
 // StreamChunk Agent 自有的流式数据块
@@ -198,6 +199,7 @@ type ToolParameter struct {
 // ToolDeps 内置工具的依赖集合
 // 由宿主一次性构造并通过 WithToolDeps 注入 Agent，取代原先 builtin_tools.go 里一组包级可变变量。
 // 所有 BuiltinToolFunc 都以第一等公民方式从形参拿依赖，不再读 package global。
+// 含义就相当于我们将有关数据库操作的相关配置都放到这个构造体下面,可以直接调用对应的功能
 type ToolDeps struct {
 	DBCtx             *ctx.Context
 	SkillsPath        string
@@ -207,6 +209,7 @@ type ToolDeps struct {
 
 	// 告警排障日志获取。由 center 路由注入：包装 alert-eval-detail / event-detail
 	// 两个内部接口，用于排查"告警规则为什么没发告警"。两者都返回 (logs, instance, err)。
+	// 相当于函数式接口,直接调用可以获取对应的日志
 	GetAlertEvalLogs       func(ruleId string) ([]string, string, error)
 	GetEventProcessingLogs func(eventHash string) ([]string, string, error)
 
@@ -242,6 +245,8 @@ type ReActLoopConfig struct {
 	Tools []AgentTool
 
 	// 流式支持（nil = 非流式）
+	// 创建一个协程间用于交换StreamChunk指针类型的管道
+	// 使用指针的含义是在这个管道中只是存储chunk的地址而不是实际的值,减少内存消耗
 	StreamChan chan *StreamChunk
 	RequestID  string
 
@@ -291,4 +296,3 @@ type ChatMessage struct {
 	Role    string `json:"role"`
 	Content string `json:"content"`
 }
-

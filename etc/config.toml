@@ -109,7 +109,7 @@ RedisType = "miniredis"
 [Alert]
 [Alert.Heartbeat]
 # auto detect if blank
-IP = ""
+IP = "127.0.0.1"
 # unit ms
 Interval = 1000
 EngineName = "default"
