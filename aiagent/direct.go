@@ -58,6 +58,7 @@ func (a *Agent) executeDirect(ctx context.Context, req *AgentRequest, rc *runCtx
 // chunk 流式发完了；router 在 StreamTypeDone case 里 if chunk.Content != "" 才会
 // 再次往 content 通道 append，置空就能避免内容翻倍。
 func (a *Agent) executeDirectWithDone(ctx context.Context, req *AgentRequest, rc *runCtx) {
+	// 还是从创建方中获取chan
 	streamChan := req.StreamChan
 	requestID := ""
 	if req.Metadata != nil {

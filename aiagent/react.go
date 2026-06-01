@@ -168,6 +168,7 @@ func (a *Agent) executeReAct(ctx context.Context, req *AgentRequest, rc *runCtx)
 // executeReActWithDone 执行 ReAct 并在流式模式下发送 done/error chunk
 // 用于流式模式的顶层调用
 func (a *Agent) executeReActWithDone(ctx context.Context, req *AgentRequest, rc *runCtx) {
+	// 注意哦,实际上这里的chan的都是由req带进来的
 	streamChan := req.StreamChan
 	requestID := ""
 	if req.Metadata != nil {
@@ -175,7 +176,7 @@ func (a *Agent) executeReActWithDone(ctx context.Context, req *AgentRequest, rc 
 	}
 
 	resp := a.executeReAct(ctx, req, rc)
-
+	// 如果返回值中带有error,就将错误信息写进chan中
 	if resp.Error != "" && !resp.Success {
 		streamChan <- &StreamChunk{
 			Type:      StreamTypeError,

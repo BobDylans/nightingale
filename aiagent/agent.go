@@ -120,7 +120,7 @@ func (a *Agent) Run(ctx context.Context, req *AgentRequest) (*AgentResponse, err
 	}
 	timeoutCtx, cancel := context.WithTimeout(parentCtx, time.Duration(a.cfg.Timeout)*time.Millisecond)
 
-	// 加载 SkillsselectAndLoadSkills
+	// 加载 Skills,首先是分三步来获取skills的元数据
 	tSkillStart := time.Now()
 	var activeSkills []*SkillContent
 	if a.cfg.Skills != nil && a.skillRegistry != nil {
@@ -133,24 +133,31 @@ func (a *Agent) Run(ctx context.Context, req *AgentRequest) (*AgentResponse, err
 
 	// 构造本次 Run 的工具表：cfg.Tools 作只读种子 → 追加 skill 工具 → 追加 MCP 工具
 	tToolStart := time.Now()
+	// 基本的含义是将a.cfg.Tools中的所有数据展开放到一个新的空的tools列表中
 	tools := append([]AgentTool(nil), a.cfg.Tools...)
 	tools = a.appendSkillTools(tools, activeSkills)
+
+	// 这里会尝试将mcp中的skills也添加进去
 	mcpToolCount := 0
 	if a.mcpClientManager != nil && len(a.mcpServers) > 0 {
 		mcpCtx, mcpCancel := context.WithTimeout(context.Background(), 10*time.Second)
 		before := len(tools)
 		tools = a.appendMCPTools(mcpCtx, tools)
+		// 主动释放没有配置成功的mcp中的tool
 		mcpCancel()
 		mcpToolCount = len(tools) - before
 	}
 	logger.Infof("[Agent] preparation: skills=%dms (n=%d) tools=%dms (mcp_added=%d total=%d)",
 		tSkillElapsed.Milliseconds(), len(activeSkills),
 		time.Since(tToolStart).Milliseconds(), mcpToolCount, len(tools))
+	// 根据上面的代码可以知道tools的加载流程基本上就是1.用户配置中写死的tools 2.skills中涉及到的tools 3.MCP配置中的tools
 
+	// 这里对应的是单次运行时里面所包含的skills以及tools
 	rc := &runCtx{skills: activeSkills, tools: tools}
 
 	// 流式模式：启动 goroutine，立即返回
 	// cfg.Stream 仅作为"默认创建 channel"的开关；如果调用方已传 StreamChan 则直接用
+	// 先检查是否出现了专门用来接收chunk的chan,如果存在直接调用Stream就行
 	if req.StreamChan != nil {
 		return a.runWithStream(timeoutCtx, cancel, req, rc)
 	}
@@ -178,13 +185,17 @@ func (a *Agent) Run(ctx context.Context, req *AgentRequest) (*AgentResponse, err
 
 // runWithStream 流式执行 - 启动 goroutine 后立即返回
 // 前置条件：req.StreamChan 不为 nil（由 Run 保证）
+// 由调用方来携带chan,是因为调用方可以确定是否使用流式进行交互
+// 里面还有一个Stream字段,chan是其实现的必要的组建,所以默认由req(即调用方)提供
 func (a *Agent) runWithStream(ctx context.Context, cancel context.CancelFunc, req *AgentRequest, rc *runCtx) (*AgentResponse, error) {
 	streamChan := req.StreamChan
-
+	// 启动一个协程,方便调用方一边接收token一边干活
 	go func() {
-		defer close(streamChan)
+		// 这里其实已并没有使用chan,单纯地将其取出并且在defer中声明保证最后可以删除
+		// defer关键字,在方法执行结束前默认关闭
+		defer close(streamChan) // 退出该协程时默认关闭chan
 		if cancel != nil {
-			defer cancel()
+			defer cancel() // 协程退出时会释放超时的context
 		}
 
 		logger.Infof("[Agent] Stream goroutine started, mode=%s", a.cfg.AgentMode)
@@ -198,7 +209,7 @@ func (a *Agent) runWithStream(ctx context.Context, cancel context.CancelFunc, re
 		}
 		logger.Infof("[Agent] Stream goroutine finished")
 	}()
-
+	// 这里最后返回的就是nil
 	return nil, nil
 }
 
@@ -307,6 +318,7 @@ func (a *Agent) selectAndLoadSkills(ctx context.Context, req *AgentRequest) []*S
 }
 
 // appendSkillTools 基于 base 工具表追加 skill 关联的 builtin / skill_tool
+// 因为我们的skills中也可能含有一些tools,相当于在这里将skills的tool加入到Tools中
 // 纯函数：不写 a.cfg，返回新切片（供 runCtx 使用）
 func (a *Agent) appendSkillTools(base []AgentTool, skills []*SkillContent) []AgentTool {
 	if len(skills) == 0 {
